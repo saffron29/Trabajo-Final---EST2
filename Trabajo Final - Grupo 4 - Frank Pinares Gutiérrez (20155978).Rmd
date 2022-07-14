@@ -1,0 +1,491 @@
+---
+title: "Trabajo Final (20155978)"
+author: "Frank Pinares Gutiérrez (20155978)"
+date: '2022-07-07'
+output: rmdformats::material
+---
+Anexo del Reporte Final - Estadística para el Análisis Político 2
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(rio)
+library(DescTools)
+library(ggplot2)
+library(moments)
+library(Rmisc)
+library(e1071)
+library(psych)
+library(dplyr)
+library(gplots)
+library(vcd)
+library(PMCMRplus)
+library(nortest)
+library(car)
+library(stargazer)
+library(lm.beta)
+library(gtools)
+library(jtools)
+library(ggstance)
+library(broom.mixed)
+library(fastDummies)
+library(writexl)
+library(lmtest)
+library(polycor)
+library(ggcorrplot)
+library(matrixcalc)
+library(GPArotation)
+library(lavaan)
+library(BBmisc)
+library(cluster)
+library(factoextra)
+library(qpcR)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+vdem = import("https://github.com/saffron29/Trabajo-Final---EST2/blob/main/V-Dem-CY-Core-v12.rds?raw=true")
+```
+
+
+1. Variable dependiente - Índice de Democracia Liberal (v2x_libdem)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+summary(vdem$v2x_libdem)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+str(vdem$v2x_libdem)
+```
+
+2. Variables independientes
+
+2.1. Libertad de Expresión
+
+2.1.1. Libertad de Discusión para Hombres (v2cldiscm_ord)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+str(vdem$v2cldiscm_ord)
+summary(vdem$v2cldiscm_ord)
+```
+
+2.1.2. Libertad de Discusión para Mujeres (v2cldiscw_ord)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+str(vdem$v2cldiscw_ord)
+summary(vdem$v2cldiscw_ord)
+```
+
+2.1.3. Libertad de Expresión Académica y Cultural (v2clacfree_ord)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+str(vdem$v2clacfree_ord)
+summary(vdem$v2clacfree_ord)
+```
+
+3. Armar la base de apoyo
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+vdem_frank = subset(vdem, select = c(country_name, year, v2x_libdem, v2cldiscm_ord, v2cldiscw_ord, v2clacfree_ord))
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+vdem_frank = vdem_frank[vdem_frank$year==2021,]
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+vdem_frank[, c(4:6)] = lapply(vdem_frank[, c(4:6)], ordered)
+str(vdem_frank$v2cldiscm_ord)
+```
+
+4. Hacer la regresión lineal múltiple o gaussiana (ANEXO 1)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+modelof <- lm(v2x_libdem~v2cldiscm_ord+v2cldiscw_ord+v2clacfree_ord, data=vdem_frank)
+summary(modelof)
+```
+
+4.1. Observar en stargazer (ANEXO 2)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+stargazer(modelof, type = "text")
+```
+
+4.2. Comprobar supuestos de regresión lineal 
+
+4.2.1. Linealidad (ANEXO 3)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(modelof, 1)
+```
+
+4.2.2. Homocedasticidad (ANEXO 4)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(modelof, 3)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+bptest(modelof)
+```
+
+4.2.3. Normalidad residual (ANEXO 5)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(modelof, 2)
+shapiro.test(modelof$residuals)
+```
+
+4.2.4. No multicolinealidad (ANEXO 6)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+VIF(modelof)
+```
+
+4.2.5. Valores influyentes (ANEXO 7)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(modelof, 5)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+checkmodf = as.data.frame(influence.measures(modelof)$is.inf)
+head(checkmodf)
+```
+
+5. Hacer uso de otras variables independientes (Astrid Rosales) para aplicar técnicas de reducción de dimensionalidad
+
+5.1. Censura Gubernamental a Medios de Comunicación (v2mecenefm_ord)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+str(vdem$v2mecenefm_ord)
+summary(vdem$v2mecenefm_ord)
+```
+
+5.2. Censura Gubernamental en Internet (v2mecenefi_ord)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+str(vdem$v2mecenefi_ord)
+summary(vdem$v2mecenefi_ord)
+```
+
+5.3. Hostigamiento hacia periodistas (v2meharjrn_ord)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+str(vdem$v2meharjrn_ord)
+summary(vdem$v2meharjrn_ord)
+```
+
+
+
+6. Análisis factorial
+
+6.1. Armar la base de apoyo 
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+factor_frank = subset(vdem, select = c(country_name, year, v2x_libdem, v2cldiscm_ord, v2cldiscw_ord, v2clacfree_ord, v2mecenefm_ord, v2mecenefi_ord, v2meharjrn_ord))
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+factor_frank = factor_frank[factor_frank$year==2021,]
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+row.names(factor_frank) = factor_frank$country_name
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+factor_frank$country_name = NULL
+factor_frank$year = NULL
+factor_frank$v2x_libdem = NULL
+```
+
+
+6.2. Análisis Factorial Exploratorio
+
+6.2.1. Explorar las correlaciones entre las variables (ANEXO 8)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+corMatrix_f = polycor::hetcor(factor_frank)$correlations
+corMatrix_f
+```
+
+6.2.2. Graficar la matriz de correlaciones (ANEXO 9)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+ggcorrplot(corMatrix_f)
+```
+
+6.2.3. Verificar validez del análisis factorial
+
+6.2.3.1. Verificar si variables se pueden factorizar (ANEXO 10)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+psych::KMO(corMatrix_f)
+```
+
+6.2.3.2. Descartar una posible matriz de identidad (ANEXO 11)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+cortest.bartlett(corMatrix_f, n = nrow(factor_frank))$p.value>0.05
+```
+
+6.2.3.3. Descartar una posible matriz singular (ANEXO 12)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+is.singular.matrix(corMatrix_f)
+```
+
+6.2.4. Determinar en cuántos factores se pueden agrupar las variables (ANEXO 13)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+fa.parallel(factor_frank, fm = "ML", fa = "fa")
+```
+
+6.2.5. Observar las cargas factoriales y ver en qué factores se ubicaría cada variable 
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+resfa_f <- fa(factor_frank, nfactors = 1, cor = "mixed", rotate = "varimax", fm = "minres")
+print(resfa_f$loadings, cutoff = 0.5)
+```
+
+
+6.2.6. Graficar cómo se agrupan las variables (ANEXO 14)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+fa.diagram(resfa_f)
+```
+
+6.2.7. Evaluar los resultados obtenidos
+
+6.2.7.1. ¿Qué variables aportaron más a los factores? (ANEXO 15)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+sort(resfa_f$communality)
+```
+
+6.2.8. Observar los posibles valores proyectados
+
+6.2.8.1. Para grabar en la base los puntajes de los factores
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+factor_frank$puntaje = resfa_f$scores
+```
+
+
+6.3. Análisis Factorial Confirmatorio
+
+6.3.1. Construir un modelo lineal (ANEXO 16)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+modelof <- "factorf =~ v2cldiscm_ord+v2cldiscw_ord+v2clacfree_ord+v2mecenefm_ord+v2mecenefi_ord+v2meharjrn_ord"
+```
+
+
+6.3.2. Crear un objeto para hacer las validaciones
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+cfa_fit <- cfa(modelof, data = factor_frank, std.lv = TRUE, missing = "fiml")
+```
+
+
+6.3.3. Preparar los tests para las validaciones
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+allParamCFA = parameterEstimates(cfa_fit, standardized = T)
+allFitCFA = as.list(fitMeasures(cfa_fit))
+```
+
+
+6.3.4. Ver si cada variable tiene una buena relación con su factor (ANEXO 17)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+allParamCFA[allParamCFA$op=="=~",]
+```
+
+
+6.3.5. Ver si la asignación de variables ha sido relativamente buena (ANEXO 18)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+allFitCFA[c("chisq", "df", "pvalue")]
+```
+
+
+6.3.6. Otra prueba para ver si el análisis factorial es relativamente bueno
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+allFitCFA$tli
+```
+
+
+6.3.7. Ver si la raíz del error cuadrático medio de aproximación es menor a 0.05 
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+allFitCFA[c("rmsea.ci.lower", "rmsea", "rmsea.ci.upper")]
+```
+
+6.3.8. Hacer predicciones (scores) de las variables latentes
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+scorescfa = normalize(lavPredict(cfa_fit), method = "range", margin = 2, range = c(0, 10))
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+factor_frank$prediccion = scorescfa
+```
+
+
+7. Clusterización o Análisis de Conglomerados
+
+7.1. Armar una base de apoyo
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+cluster_frank = subset(vdem, select = c(country_name, year, v2x_libdem, v2cldiscm_ord, v2cldiscw_ord, v2clacfree_ord, v2mecenefm_ord, v2mecenefi_ord, v2meharjrn_ord))
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+cluster_frank = cluster_frank[cluster_frank$year==2021,]
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+row.names(cluster_frank) = cluster_frank$country_name
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+cluster_frank$country_name = NULL
+cluster_frank$year = NULL
+cluster_frank$v2x_libdem = NULL
+```
+
+
+7.2. Calcular las distancias entre elementos que permita agruparlos en clusters
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+g.dist = daisy(cluster_frank[, c(1:6)], metric = "gower")
+```
+
+
+7.3. Para obtener el número recomendado de clusters
+
+7.3.1. Clusterización no jerárquica (PAM)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+fviz_nbclust(cluster_frank[, c(1:6)], pam, diss = g.dist, method = "gap_stat", k.max = 10, verbose = F)
+```
+
+7.3.2. Clusterización por agrupación (AGNES)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+fviz_nbclust(cluster_frank[, c(1:6)], hcut, diss = g.dist, method = "gap_stat", k.max = 10, verbose = F, hc_func = "agnes")
+```
+
+7.3.3. Clusterización por división (DIANA)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+fviz_nbclust(cluster_frank[, c(1:6)], hcut, diss = g.dist, method = "gap_stat", k.max = 10, verbose = F, hc_func = "diana")
+```
+
+7.4. Hacer asignación de clusters en base a número de clusters recomendados
+
+7.4.1. Clusterización no jerárquica (PAM)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+res.pam = pam(g.dist, k = 9, cluster.only = F)
+cluster_frank$clustPT = res.pam$cluster
+```
+
+7.4.2. Clusterización agrupativa (AGNES)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+res.agnes = hcut(g.dist, k = 4, hc_func = "agnes", hc_method = "ward.D")
+cluster_frank$clustAG = res.agnes$cluster
+```
+
+7.4.3. Clusterización divisiva (DIANA)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+res.diana = hcut(g.dist, k = 4, hc_func = "diana")
+cluster_frank$clustDIV = res.diana$cluster
+```
+
+7.5. Dar puntaje a la clusterización
+
+7.5.1. Clusterización no jerárquica (PAM)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+fviz_silhouette(res.pam)
+```
+
+7.5.2. Clusterización agrupativa (AGNES)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+fviz_silhouette(res.agnes)
+```
+
+7.5.3. Clusterización divisiva (DIANA)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+fviz_silhouette(res.diana)
+```
+
+7.6. Encontrar los casos mal clusterizados según cada método
+
+7.6.1. Clusterización no jerárquica (PAM)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+silPAM = data.frame(res.pam$silinfo$widths)
+silPAM$country = row.names(silPAM)
+malPAM = silPAM[silPAM$sil_width<0,"country"]%>%sort() 
+```
+
+7.6.2. Clusterización agrupativa (AGNES)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+silAGNES = data.frame(res.agnes$silinfo$widths)
+silAGNES$country = row.names(silAGNES)
+malAGNES = silAGNES[silAGNES$sil_width<0,"country"]%>%sort() 
+```
+
+7.6.3. Clusterización divisiva (DIANA)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+silDIANA = data.frame(res.diana$silinfo$widths)
+silDIANA$country = row.names(silDIANA)
+malDIANA = silDIANA[silDIANA$sil_width<0,"country"]%>%sort() 
+```
+
+
+7.6.4. Juntar elementos mal clusterizados en un solo data frame
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+mal_Clus = as.data.frame(qpcR:::cbind.na(malPAM, malAGNES, malDIANA))
+mal_Clus
+```
+
+7.7. Graficar la mejor clusterización (DIANA)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+proyeccion = cmdscale(g.dist, k=2,add = T) 
+cluster_frank$dim1 <- proyeccion$points[,1]
+cluster_frank$dim2 <- proyeccion$points[,2]
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+str(cluster_frank)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+base = ggplot(cluster_frank, aes(x = dim1, y = dim2, label = row.names(cluster_frank))) 
+base + geom_text(size = 2, aes(color = as.factor(clustDIV))) + labs(title = "DIANA") 
+```
+
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
